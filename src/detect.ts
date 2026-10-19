@@ -39,7 +39,7 @@ const DETECTORS: readonly (readonly [DiagramType, RegExp])[] = [
   ['mindmap', /^\s*mindmap/],
   ['architecture', /^\s*architecture/],
   ['agentflow', /^\s*agentflow-beta\b/],
-  ['c4', /^\s*C4Context|C4Container|C4Component|C4Dynamic|C4Deployment/],
+  ['c4', /^\s*(?:C4Context|C4Container|C4Component|C4Dynamic|C4Deployment)/],
   ['kanban', /^\s*kanban/],
   ['class', /^\s*classDiagram/],
   ['er', /^\s*erDiagram/],

@@ -159,14 +159,28 @@ export function renderQuadrant(model: QuadrantModel, config: Config, options: Re
     const halfW = text.width / 2;
     const halfH = text.size * 0.6 + (text.height - text.lineHeight) / 2;
     const away = reach + textPad;
+    const inset = Math.min(away, Math.max(0, (tileW - text.width) / 2));
+    const heading = 8 + 4 * (cx < left + w / 2 ? (cy < top + h / 2 ? 1 : 2) : (cy < top + h / 2 ? 0 : 3));
     const spots = [cx, cy + away + halfH, cx, cy - away - halfH, cx + away + halfW, cy, cx - away - halfW, cy];
     let tx = cx;
     let ty = spots[1];
     let found = false;
     for (let k = 0; k < 16; k += 2) {
       const spot = k % 8;
-      const x = spot < 4 && text.width < w ? Math.min(Math.max(spots[spot], left + halfW), left + w - halfW) : spots[spot];
-      const y = spots[spot + 1];
+      const x =
+        spot < 4 && text.width < w ? Math.min(Math.max(spots[spot], left + halfW + inset), left + w - halfW - inset) : spots[spot];
+      let y = spots[spot + 1];
+      // Try below an overlapping quadrant title before allowing the label across a gap.
+      if (
+        spot === 0 &&
+        x - halfW < taken[heading + 2] &&
+        x + halfW > taken[heading] &&
+        y - halfH < taken[heading + 3] &&
+        y + halfH > taken[heading + 1]
+      ) {
+        const below = taken[heading + 3] + halfH + textPad;
+        if (below + halfH <= top + h && isClear(0, x - halfW, below - halfH, x + halfW, below + halfH)) y = below;
+      }
       if (x - halfW < left || x + halfW > left + w || y - halfH < top || y + halfH > top + h) continue;
       const free = !careful || isClear(k < 8 ? 0 : 8, x - halfW, y - halfH, x + halfW, y + halfH);
       if (!found || free) {

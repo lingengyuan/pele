@@ -11,10 +11,21 @@ const collect = runInNewContext('gc') as () => void;
 // Just enough of a browser for mount(): an element with a width, its computed style, and an observer to fire by hand.
 interface FakeElement { clientWidth: number; innerHTML: string }
 let observers: { fire: () => void; element: FakeElement; connected: boolean }[] = [];
+let frames = new Map<number, FrameRequestCallback>();
+let nextFrame = 0;
 const globals = globalThis as Record<string, unknown>;
+
+const paint = (): void => {
+  const pending = [...frames.values()];
+  frames.clear();
+  for (const callback of pending) callback(0);
+};
 
 beforeEach(() => {
   observers = [];
+  frames = new Map();
+  globals.requestAnimationFrame = (callback: FrameRequestCallback) => { frames.set(++nextFrame, callback); return nextFrame; };
+  globals.cancelAnimationFrame = (id: number) => { frames.delete(id); };
   globals.getComputedStyle = () => ({ fontFamily: 'sans-serif', paddingLeft: '10px', paddingRight: '10px', getPropertyValue: () => '' });
   globals.ResizeObserver = class {
     private entry = { fire: () => this.callback(), element: undefined as unknown as FakeElement, connected: false };
@@ -32,6 +43,8 @@ beforeEach(() => {
 afterEach(() => {
   delete globals.getComputedStyle;
   delete globals.ResizeObserver;
+  delete globals.requestAnimationFrame;
+  delete globals.cancelAnimationFrame;
 });
 
 const element = (clientWidth: number): HTMLElement =>
@@ -39,6 +52,7 @@ const element = (clientWidth: number): HTMLElement =>
 const resize = (target: HTMLElement, clientWidth: number): void => {
   (target as unknown as FakeElement).clientWidth = clientWidth;
   for (const observer of observers) if (observer.connected && observer.element === (target as unknown)) observer.fire();
+  paint();
 };
 const options = { measurer: metricsMeasurer };
 const spying = (seen: (o: RenderOptions) => void, parsed?: () => void): Engine => ({
@@ -562,6 +576,8 @@ describe('mount', () => {
       const view = {
         getComputedStyle: () => ({ fontFamily, paddingLeft: '0px', paddingRight: '0px', getPropertyValue: () => '' }),
         ResizeObserver: globals.ResizeObserver,
+        requestAnimationFrame: globals.requestAnimationFrame,
+        cancelAnimationFrame: globals.cancelAnimationFrame,
       };
       return { defaultView: view, fonts: fontSet().fonts };
     };
@@ -575,6 +591,7 @@ describe('mount', () => {
     el.ownerDocument = second;
     seen.length = 0;
     observers[0].fire();
+    paint();
     expect([...new Set(seen)]).toEqual(['Inter']);
     expect(observers.map((observer) => observer.connected)).toEqual([false, true]);
   });

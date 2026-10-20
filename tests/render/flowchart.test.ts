@@ -72,6 +72,17 @@ describe('flowchart rendering', () => {
     expect(svg.match(/<tspan/g)?.length).toBe(2);
   });
 
+  it('decodes HTML5 aliases such as lcub and verbar in labels', () => {
+    const { svg } = render('flowchart LR\n  A["GET /plans/&lcub;id&rcub;"] --> B["items#lsqb;0#rsqb; #verbar; none"]', options);
+    expect(svg).toContain('GET /plans/{id}');
+    expect(svg).toContain('items[0] | none');
+  });
+
+  it('decodes each entity code once', () => {
+    const { svg } = render('flowchart LR\n  A["x #amp;lt; y #38;gt; z"]', options);
+    expect(svg).toContain('x &amp;lt; y &amp;gt; z');
+  });
+
   it('wraps long labels', () => {
     const short = render('flowchart TD\n  A[one two]', options);
     const long = render('flowchart TD\n  A[one two three four five six seven eight nine ten eleven twelve]', options);
@@ -89,6 +100,25 @@ describe('flowchart rendering', () => {
     const { svg } = render('flowchart TD\n  A["`one **two** three`"]\n  style A font-weight:bold', options);
     expect(svg).not.toContain('**');
     expect(svg).toContain('two');
+  });
+
+  it.each(['b', 'strong', 'i', 'em'])('keeps <%s> formatting across explicit line breaks', (tag) => {
+    for (const br of ['<br/>', '<br>', '<BR />', '\\n', '\n']) {
+      const source = `flowchart LR\n  A["<${tag}>First${br}Second</${tag}> plain${br}Third"]`;
+      const reopened = `flowchart LR\n  A["<${tag}>First</${tag}>${br}<${tag}>Second</${tag}> plain${br}Third"]`;
+      expect(render(source, options).svg, `${tag} across ${JSON.stringify(br)}`).toBe(render(reopened, options).svg);
+    }
+  });
+
+  it('keeps nested HTML formatting across breaks without changing other labels or the base style', () => {
+    const source = 'flowchart LR\n  A["<b><i>First<br/><br/>Second</i> bold</b> plain"] --> B[plain]';
+    const reopened = 'flowchart LR\n  A["<b><i>First</i></b><br/><br/><b><i>Second</i> bold</b> plain"] --> B[plain]';
+    for (const suffix of ['', '\n  style A font-weight:bold']) {
+      expect(render(source + suffix, options).svg).toBe(render(reopened + suffix, options).svg);
+    }
+    expect(render('flowchart LR\n A["<b>First<br/>Second"] --> B[plain]', options).svg).toBe(
+      render('flowchart LR\n A["<b>First</b><br/><b>Second</b>"] --> B[plain]', options).svg
+    );
   });
 
   it('applies style, classDef and linkStyle', () => {

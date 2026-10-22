@@ -79,7 +79,8 @@ function draw(model: SankeyModel, conf: Config, options: RenderOptions, chartWid
   }
   const nodeStyle = (i: number): string => custom.get(model.nodes[i].id) ?? '';
 
-  // Labels sit beside the bars, on the side that faces the middle of the chart.
+  // Labels sit beside the bars, on the side that faces the middle of the chart unless that
+  // side is crowded.
   let central = 0;
   let most = 0;
   nodes.forEach((node) => {

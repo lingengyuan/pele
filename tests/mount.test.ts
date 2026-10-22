@@ -111,6 +111,34 @@ describe('mount', () => {
     expect(drawn.map((result) => result.width)).toEqual([natural.width, 400, 320, natural.width]);
   });
 
+  it('draws for a change of size in the next frame, once however many changes it sees', () => {
+    const el = element(1000);
+    let count = 0;
+    const handle = mount(el, SANKEY, { ...options, onRender: () => count++ });
+    (el as unknown as FakeElement).clientWidth = 420;
+    observers[0].fire();
+    observers[0].fire();
+    expect(count).toBe(1);
+    paint();
+    expect(count).toBe(2);
+    expect(handle.result.width).toBe(400);
+
+    (el as unknown as FakeElement).clientWidth = 340;
+    observers[0].fire();
+    handle.destroy();
+    paint();
+    expect(count).toBe(2);
+  });
+
+  it('draws for a change of size at once in a window without frames', () => {
+    delete globals.requestAnimationFrame;
+    const el = element(1000);
+    const handle = mount(el, SANKEY, options);
+    (el as unknown as FakeElement).clientWidth = 420;
+    observers[0].fire();
+    expect(handle.result.width).toBe(400);
+  });
+
   it('leaves the drawing alone while the element has no width, as when it is hidden', () => {
     const el = element(420);
     let count = 0;

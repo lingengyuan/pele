@@ -339,6 +339,7 @@ export function mountWith(engine: Engine, element: HTMLElement, text: string, op
     view = next;
     observer = next.ResizeObserver ? new next.ResizeObserver(() => {
       if (frame !== undefined) return;
+      if (!next.requestAnimationFrame) return refresh();
       frame = next.requestAnimationFrame(() => {
         frame = undefined;
         refresh();

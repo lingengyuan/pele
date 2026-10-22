@@ -227,7 +227,7 @@ describe('state diagram rendering', () => {
       const smooth = draw(body);
       expect(smooth).toMatch(/<g class="pele-edge pele-transition"[^>]*><path d="[^"]*C/);
       for (const curve of ['linear', 'step', 'stepBefore', 'stepAfter']) {
-        const svg = render(`---\nconfig:\n  state:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
+        const svg = render(`---\nconfig:\n  flowchart:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
         expect(svg).not.toBe(smooth);
         expect(() => assertWellFormed(svg)).not.toThrow();
         expect(svg).not.toMatch(/NaN|Infinity|undefined/);
@@ -251,7 +251,7 @@ describe('state diagram rendering', () => {
   it('keeps stepped arrowheads pointing into their states along the flow', () => {
     for (const dir of ['TB', 'LR']) {
       for (const curve of ['step', 'stepBefore', 'stepAfter']) {
-        const src = `---\nconfig:\n  state:\n    curve: ${curve}\n---\nstateDiagram-v2\n direction ${dir}\n A --> B\n A --> C\n A --> D\n B --> E\n C --> E\n D --> E\n E --> F : Yes\n E --> A : No`;
+        const src = `---\nconfig:\n  flowchart:\n    curve: ${curve}\n---\nstateDiagram-v2\n direction ${dir}\n A --> B\n A --> C\n A --> D\n B --> E\n C --> E\n D --> E\n E --> F : Yes\n E --> A : No`;
         const svg = render(src, options).svg;
         const markers = [...svg.matchAll(/class="pele-marker" d="M[-\d.]+,[-\d.]+L([-\d.]+),([-\d.]+)L([-\d.]+),([-\d.]+)Z"/g)];
         expect(markers).toHaveLength(8);
@@ -261,10 +261,16 @@ describe('state diagram rendering', () => {
     }
   });
 
+  it('ignores a state curve setting, which Mermaid does not have', () => {
+    const body = 'a --> b\n a --> c\n b --> d\n c --> d';
+    const svg = render(`---\nconfig:\n  state:\n    curve: step\n---\nstateDiagram-v2\n${body}`, options).svg;
+    expect(svg).toBe(draw(body));
+  });
+
   it('keeps the default curve for absent, unknown and non-string settings', () => {
     const body = 'a --> b\n a --> c\n b --> d\n c --> d';
     for (const curve of ['basis', 'unknown', 'stepUnknown', '42', 'true', 'null', '{}']) {
-      const svg = render(`---\nconfig:\n  state:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
+      const svg = render(`---\nconfig:\n  flowchart:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
       expect(svg).toBe(draw(body));
     }
   });
@@ -272,7 +278,7 @@ describe('state diagram rendering', () => {
   it('keeps self-transitions curved for every curve setting', () => {
     const body = 'a --> a : again';
     for (const curve of ['linear', 'basis', 'step', 'stepBefore', 'stepAfter']) {
-      const svg = render(`---\nconfig:\n  state:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
+      const svg = render(`---\nconfig:\n  flowchart:\n    curve: ${curve}\n---\nstateDiagram-v2\n${body}`, options).svg;
       expect(svg).toBe(draw(body));
       expect(count(svg, 'class="pele-marker"')).toBe(1);
     }

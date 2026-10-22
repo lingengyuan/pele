@@ -49,7 +49,7 @@ ZenUML and other external Mermaid plugins are not supported. Use [`supports()`](
 
 ## Syntax
 
-Pele supports frontmatter, `%%{init}%%` directives, comments, and accessibility titles and descriptions. Configuration support varies by diagram type.
+Pele supports frontmatter, `%%{init}%%` directives, comments, and accessibility titles and descriptions. Configuration support varies by diagram type. As in Mermaid, state diagrams use `flowchart.curve` for transition curves.
 
 ## Differences from Mermaid
 

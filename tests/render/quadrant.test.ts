@@ -180,6 +180,22 @@ describe('quadrant chart rendering', () => {
     expect(circles(svg)).toHaveLength(7);
   });
 
+  it('keeps a label beside its point when there is room before going below the quadrant title', () => {
+    const source = `quadrantChart
+      title Q4 candidates by effort and impact
+      x-axis Low effort --> High effort
+      y-axis Low impact --> High impact
+      quadrant-1 Plan carefully
+      quadrant-2 Do first
+      quadrant-3 Reconsider
+      quadrant-4 Quick wins
+      Left edge: [0, 0.5]`;
+    const { svg } = render(source, { ...options, maxWidth: 320 });
+    const title = elements(/<text[^>]*>Reconsider<\/text>/.exec(svg)![0])[0].attrs;
+    const label = elements(/<text[^>]*>Left edge<\/text>/.exec(svg)![0])[0].attrs;
+    expect(Number(label.get('y'))).toBeLessThan(Number(title.get('y')));
+  });
+
   it('reads markdown strings and line breaks in labels', () => {
     const { svg } = render('quadrantChart\n quadrant-1 "`**Bold** text`"\n "two<br>lines": [0.5, 0.5]', options);
     expect(svg).toContain('<tspan x=');

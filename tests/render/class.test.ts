@@ -74,6 +74,11 @@ describe('class diagram rendering', () => {
     }
   });
 
+  it('keeps the layout when wrapping would not make it narrower', () => {
+    const body = 'note "From Duck till Zebra"\nAnimal <|-- Duck\nAnimal <|-- Fish\nAnimal <|-- Zebra\nAnimal <|-- Cat\nAnimal <|-- Dog';
+    expect(draw(body, { maxWidth: 320 })).toBe(draw(body));
+  });
+
   it('moves namespaces, notes, relationship labels and self-links with their class groups', () => {
     const body = Array.from({ length: 4 }, (_, i) => `namespace N${i} {\nclass A${i}\nclass B${i}\n}\nA${i} "one" --> "many" B${i} : uses\nnote for A${i} "check"\nB${i} --> B${i} : retry`).join('\n');
     const natural = draw(body);

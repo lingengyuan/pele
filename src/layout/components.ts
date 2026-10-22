@@ -49,7 +49,8 @@ export function wrapComponents(nodes: CNode[], edges: CEdge[], width: number, ga
     if (e.labelW > 0) include(part, e.labelX, e.labelY, e.labelW, e.labelH);
   }
 
-  let x = 0, y = 0, rowHeight = 0, right = 0;
+  let x = 0, y = 0, rowHeight = 0, right = 0, from = Infinity, to = -Infinity;
+  const shifts: number[] = [];
   for (const part of parts.values()) {
     const w = part.right - part.left, h = part.bottom - part.top;
     if (x > 0 && x + w > width) {
@@ -57,10 +58,15 @@ export function wrapComponents(nodes: CNode[], edges: CEdge[], width: number, ga
       x = 0;
       rowHeight = 0;
     }
-    shiftLayout(part.nodes, part.edges, x - part.left, y - part.top);
+    shifts.push(x - part.left, y - part.top);
+    from = Math.min(from, part.left);
+    to = Math.max(to, part.right);
     right = Math.max(right, x + w);
     rowHeight = Math.max(rowHeight, h);
     x += w + gap;
   }
+  if (right >= to - from) return undefined;
+  let k = 0;
+  for (const part of parts.values()) shiftLayout(part.nodes, part.edges, shifts[k++], shifts[k++]);
   return { width: right, height: y + rowHeight };
 }

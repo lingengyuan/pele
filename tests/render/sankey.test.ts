@@ -174,6 +174,17 @@ Upgraded to Pro,Stayed on Pro,284`;
     }
   });
 
+  it('keeps a moved label beside its own bar', () => {
+    const { svg } = render(configured('showValues: false', 'sankey\nA,B,1\nC,D,200\nE,F,1\nF,G,600\nG,D,200\nB,D,1\n'), options);
+    const label = Number(/data-id="E"><text x="[\d.]+" y="([\d.]+)"/.exec(svg)![1]) - Math.round(16 * 0.875) * 0.35;
+    const bar = (id: string): [number, number] => {
+      const m = new RegExp(`class="pele-sankey-node" data-id="${id}" x="[^"]+" y="([^"]+)" width="[^"]+" height="([^"]+)"`).exec(svg)!;
+      return [Number(m[1]), Number(m[1]) + Number(m[2])];
+    };
+    const gap = ([top, bottom]: [number, number]): number => Math.max(0, top - label, label - bottom);
+    expect(gap(bar('E'))).toBeLessThan(gap(bar('C')));
+  });
+
   it('grows the picture to hold labels that reach outside the chart', () => {
     const { width, svg } = render(configured('labelStyle: outlined', 'sankey\nA,Somewhere with a very long name indeed,1\n'), options);
     expect(width).toBeGreaterThan(800);

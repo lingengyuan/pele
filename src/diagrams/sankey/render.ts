@@ -137,6 +137,9 @@ function draw(model: SankeyModel, conf: Config, options: RenderOptions, chartWid
           const y = label.y + dy;
           if (overlapsLabel(left, y) || left < minX || left + label.width > maxX || y - small * 0.75 < minY || y + small * 0.75 > maxY) continue;
           if (nodes.some((bar, j) => j !== i && left < bar.x + nodeWidth + LABEL_GAP && left + label.width > bar.x - LABEL_GAP && y - small * 0.75 < bar.y + bar.height && y + small * 0.75 > bar.y)) continue;
+          // A label stays nearer its own bar than any other in the column, so it can't name that one.
+          const own = Math.max(0, node.y - y, y - node.y - node.height);
+          if (nodes.some((bar, j) => j !== i && bar.x === node.x && Math.max(0, bar.y - y, y - bar.y - bar.height) <= own)) continue;
           label.left = left;
           label.y = y;
           label.after = after;

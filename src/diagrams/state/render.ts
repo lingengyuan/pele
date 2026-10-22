@@ -124,7 +124,7 @@ export function renderState(db: StateDb, config: Config, options: RenderOptions)
 // `turned` draws a diagram that runs across as one that runs down.
 function draw(db: StateDb, config: Config, options: RenderOptions, turned: boolean): Rendered {
   const graph = db.graph;
-  // As in Mermaid, state diagrams follow the flowchart curve.
+  // State diagrams follow the flowchart curve.
   const curve = (config.flowchart as Config | undefined)?.curve;
   const size = options.fontSize ?? 16;
   const small = Math.round(size * 0.875);

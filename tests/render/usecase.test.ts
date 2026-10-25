@@ -440,7 +440,7 @@ describe('use case diagram rendering', () => {
       "syntax: Error parsing usecase diagram: Expecting: one of these possible Token sequences:\n  1. [NEWLINE]\n  2. [EOF]\nbut found: '-->' at line 3, column 3 [32,35)"
     );
     expect(message('usecase-beta\nsystemBoundary S\nA')).toBe(
-      "syntax: Error parsing usecase diagram: Expecting token of type --> END <-- but found --> '' <-- at line 4, column 1 [32,32)"
+      "syntax: Error parsing usecase diagram: Expecting token of type --> END <-- but found --> '' <-- at line 3, column 2 [31,31)"
     );
     expect(message('usecase-beta\nA "b')).toBe(
       'syntax: Error lexing usecase diagram: unexpected character: ->"<- at offset: 15, skipped 1 characters. at line 2, column 3 [15,16)'

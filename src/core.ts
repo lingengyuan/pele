@@ -117,10 +117,10 @@ function inSource(text: string, keepComments: boolean): (at: number) => [source:
       steps = [];
       const pre = preprocess(text, steps);
       encodeEntities(keepComments ? pre.withComments : cleanupComments(pre.withComments, steps), steps);
-      // Match the line break appended for parsing.
-      source = normalizeLineBreaks(text) + '\n';
+      source = normalizeLineBreaks(text);
     }
-    return [source, inputOffset(steps, at)];
+    // The line break appended for parsing is not part of the author's source.
+    return [source, Math.min(inputOffset(steps, at), source.length)];
   };
 }
 

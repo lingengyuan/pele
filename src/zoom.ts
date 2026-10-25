@@ -6,7 +6,7 @@ export interface ZoomOptions {
   always?: boolean;
   // The most a drawing is enlarged, as a multiple of its natural size. 3 by default.
   maxScale?: number;
-  // Whether buttons to enlarge and reduce are shown over a drawing that can be enlarged, and
+  // Whether buttons to enlarge and reduce are shown with a drawing that can be enlarged, and
   // one to reset it while it is. They are by default.
   controls?: boolean;
   // What the buttons are called, for a page that is not in English.
@@ -53,14 +53,15 @@ export function frame(
 
 const STEP = 1.25;
 const PAN = 48;
+const BAR_HEIGHT = 30;
 
 // The class `pele` lets a page's rule for `.pele` give the buttons the diagram's colors, and the
-// variables let it move them: they sit over the diagram, where a page may have things of its own.
+// variables let a page choose another position within the diagram's element.
 const BAR_STYLE =
   '--_bg:var(--pele-bg,#fff);--_fg:var(--pele-fg,#1f1f1f);--_b:var(--pele-border,#8a8a8a);' +
-  'position:absolute;top:var(--pele-zoom-top,8px);right:var(--pele-zoom-right,8px);' +
-  'bottom:var(--pele-zoom-bottom,auto);left:var(--pele-zoom-left,auto);display:flex;flex-direction:column;gap:2px;padding:2px;' +
-  'width:auto;max-width:none;border:1px solid var(--_b);border-radius:var(--pele-radius,4px);background:var(--_bg);color:var(--_fg);line-height:0';
+  'position:absolute;top:var(--pele-zoom-top,auto);right:var(--pele-zoom-right,8px);' +
+  'bottom:var(--pele-zoom-bottom,0);left:var(--pele-zoom-left,auto);display:flex;gap:2px;padding:2px;' +
+  'width:max-content;height:max-content;max-width:none;border:1px solid var(--_b);border-radius:var(--pele-radius,4px);background:var(--_bg);color:var(--_fg);line-height:0';
 const BUTTON_STYLE =
   'appearance:none;display:grid;place-items:center;width:24px;height:24px;margin:0;padding:0;border:0;' +
   'border-radius:calc(var(--pele-radius,4px) - 1px);background:transparent;color:inherit;font:inherit;cursor:var(--pele-zoom-cursor,pointer)';
@@ -101,9 +102,12 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
 
   const measure = (): void => {
     if (!svg || scale !== 0) return;
+    const shown = controls?.parentNode === element && !controls.hidden;
+    svg.style.display = shown || options.always === true && options.controls !== false ? 'block' : restStyle.display;
     const at = svg.getBoundingClientRect();
     rest = { width: at.width, height: at.height };
-    box = { width: Math.max(rest.width, element.clientWidth), height: Math.max(rest.height, element.clientHeight) };
+    const reserved = shown ? BAR_HEIGHT : 0;
+    box = { width: Math.max(rest.width, element.clientWidth), height: Math.max(rest.height, element.clientHeight - reserved) };
     roomy = box.width > rest.width + 1 || box.height > rest.height + 1;
     if (!roomy) box = rest;
     // Padding keeps a drawing at rest off the element's edges. An enlarged one is a view, which
@@ -115,6 +119,7 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
   };
 
   let bar: HTMLElement | undefined;
+  let controls: HTMLElement | undefined;
   const buttons: Partial<Record<keyof typeof ICONS, HTMLButtonElement>> = {};
   let positioned = false;
 
@@ -124,6 +129,8 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
     if (!bar) {
       if (!can) return;
       const doc = element.ownerDocument;
+      controls = doc.createElement('div');
+      controls.style.cssText = `height:${BAR_HEIGHT}px;margin:0;padding:0;border:0`;
       bar = doc.createElement('div');
       bar.className = 'pele pele-zoom';
       bar.setAttribute('style', BAR_STYLE);
@@ -147,9 +154,13 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
       element.style.position = 'relative';
       positioned = true;
     }
+    if (can && controls!.parentNode !== element) element.append(controls!);
     if (can && bar.parentNode !== element) element.append(bar);
+    controls!.hidden = !can;
+    controls!.style.display = can ? 'block' : 'none';
     bar.hidden = !can;
     bar.style.display = can ? 'flex' : 'none';
+    svg!.style.display = can ? 'block' : restStyle.display;
     const dim = (button: HTMLButtonElement | undefined, off: boolean): void => {
       if (!button) return;
       button.disabled = off;
@@ -238,29 +249,38 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
   };
   let observer: ResizeObserver | undefined;
   let observed: typeof globalThis | undefined;
+  let queued = 0;
   const watch = (): void => {
     if (!observe) return;
     const next = view();
     if (next === observed) return;
     observer?.disconnect();
+    if (queued) observed?.cancelAnimationFrame(queued);
+    queued = 0;
     observed = next;
-    observer = next.ResizeObserver ? new next.ResizeObserver(resized) : undefined;
+    // Reserving controls can resize the host; do that after observer delivery.
+    observer = next.ResizeObserver ? new next.ResizeObserver(() => {
+      if (!queued) queued = next.requestAnimationFrame(() => { queued = 0; resized(); });
+    }) : undefined;
     observer?.observe(element);
   };
 
   const refresh = (): void => {
     watch();
+    const previous = svg;
     const first = element.firstElementChild;
     svg = first && first.localName === 'svg' ? (first as SVGSVGElement) : null;
     scale = 0;
     if (!svg) {
+      controls?.remove();
       bar?.remove();
       take(false);
       return;
     }
     natural = { width: Number(svg.getAttribute('width')) || 0, height: Number(svg.getAttribute('height')) || 0 };
-    restStyle = { width: svg.style.width, height: svg.style.height, maxWidth: svg.style.maxWidth, margin: svg.style.margin, display: svg.style.display };
+    restStyle = { width: svg.style.width, height: svg.style.height, maxWidth: svg.style.maxWidth, margin: svg.style.margin, display: svg === previous ? restStyle.display : svg.style.display };
     settle();
+    watched = element.clientWidth + element.clientHeight;
   };
 
   const pointers = new Map<number, { x: number; y: number }>();
@@ -410,7 +430,6 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
     if (!on) gesture = 0;
   }
 
-  watched = element.clientWidth + element.clientHeight;
   refresh();
 
   return {
@@ -432,12 +451,16 @@ export function zoomWith(element: HTMLElement, options: ZoomOptions, observe: bo
     destroy() {
       settle();
       if (svg) {
+        svg.style.display = restStyle.display;
         svg.style.touchAction = '';
         svg.removeAttribute('tabindex');
       }
+      controls?.remove();
       bar?.remove();
       if (positioned) element.style.position = '';
       observer?.disconnect();
+      if (queued) observed?.cancelAnimationFrame(queued);
+      queued = 0;
       take(false);
       for (const [type, listener, how] of listeners) element.removeEventListener(type, listener, how);
     },

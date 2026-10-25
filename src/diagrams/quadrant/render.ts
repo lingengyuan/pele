@@ -93,7 +93,8 @@ export function renderQuadrant(model: QuadrantModel, config: Config, options: Re
     const text = label(model.quadrants[k], size, tileW - 16);
     const cx = x + tileW / 2;
     const cy = hasPoints ? y + textTop + text.height / 2 : y + tileH / 2;
-    taken.push(cx - text.width / 2, cy - text.height / 2, cx + text.width / 2, cy + text.height / 2);
+    // Keep empty heading slots for the fallback, without blocking point labels.
+    taken.push(text.height ? cx - text.width / 2 : Infinity, cy - text.height / 2, cx + text.width / 2, cy + text.height / 2);
     quadrants +=
       `<g class="pele-quadrant" data-id="${k + 1}">` +
       `<rect x="${num(x)}" y="${num(y)}" width="${num(tileW)}" height="${num(tileH)}"${ROUNDED}/>` +

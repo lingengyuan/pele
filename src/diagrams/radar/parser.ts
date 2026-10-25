@@ -96,6 +96,20 @@ const ID: TokenType = { name: 'ID', pattern: /[\w]([-\w]*\w)?/y };
 const word = (text: string): TokenType => ({ name: text, pattern: text, longer: [ID] });
 const mark = (text: string): TokenType => ({ name: text, pattern: text });
 
+// Only an option value may take a prefix of a longer name.
+const value = (name: string, pattern: RegExp, option: T): TokenType => ({
+  name,
+  pattern,
+  match(src, at, previous) {
+    pattern.lastIndex = at;
+    if (!pattern.test(src)) return -1;
+    const end = pattern.lastIndex;
+    const id = ID.pattern as RegExp;
+    id.lastIndex = at;
+    return previous === option || !id.test(src) || id.lastIndex <= end ? end : -1;
+  },
+});
+
 export const RADAR_TOKENS: readonly TokenType[] = [
   mark('radar-beta:'),
   { ...keyword('radar-beta'), longer: [ID] },
@@ -112,11 +126,11 @@ export const RADAR_TOKENS: readonly TokenType[] = [
   mark(']'),
   mark('{'),
   mark('}'),
-  { name: 'GRATICULE', pattern: /circle|polygon/y },
-  { name: 'BOOLEAN', pattern: /true|false/y },
+  value('GRATICULE', /circle|polygon/y, T.graticule),
+  value('BOOLEAN', /true|false/y, T.showLegend),
   { ...ACC_DESCR, match: matchAccDescr },
   ACC_TITLE,
-  TITLE,
+  { ...TITLE, pattern: /[\t ]*title(?![-\w])(?:[\t ][^\n\r]*?(?=%%)|[\t ][^\n\r]*|)/y },
   { name: 'NUMBER', pattern: /(?:[0-9]+\.[0-9]+(?!\.))|(?:0|[1-9][0-9]*(?!\.))/y, match: matchNumber },
   STRING,
   ID,

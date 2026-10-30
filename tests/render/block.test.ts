@@ -55,6 +55,14 @@ function labelBoxes(svg: string): Box[] {
   });
 }
 
+function nodeLabel(svg: string, id: string): string[] {
+  const at = svg.indexOf(`data-id="${id}"`);
+  const body = svg.slice(svg.lastIndexOf('<g class="pele-node', at), svg.indexOf('</g>', at));
+  const inner = /<text class="pele-label"[^>]*>([\s\S]*?)<\/text>/.exec(body)?.[1] ?? '';
+  const lines = [...inner.matchAll(/<tspan(?:\s[^>]*)?>([\s\S]*?)<\/tspan>/g)].map((m) => m[1]);
+  return lines.length > 0 ? lines : inner === '' ? [] : [inner];
+}
+
 function expectSeparateLabels(src: string, count: number): void {
   const result = render(src, options);
   const model = parse(src);
@@ -159,6 +167,87 @@ describe('block rendering', () => {
     expect(at.get('c')!.x).toBeCloseTo(a.x + (a.w + 12) / 2, 1);
     expect(d.x).toBeCloseTo(a.x + 2 * (a.w + 12), 1);
     expect(d.y).toBe(at.get('c')!.y);
+  });
+
+  it('uses the wider cell to wrap a spanning block label', () => {
+    const text = 'Something long long long long long long';
+    const src = `block\n  1["Something"]\n  2["${text}"]:2\n  3["${text}"]:5\n  4["${text}"]:2\n  5["Something"]`;
+    const result = render(src, options);
+    const at = boxes(result.svg);
+    expect(at.get('3')!.w).toBeGreaterThan(at.get('2')!.w);
+    expect(nodeLabel(result.svg, '3')).toEqual([text]);
+    expect(nodeLabel(result.svg, '2')).toHaveLength(2);
+    expect(metricsMeasurer.width(text, 16, 0)).toBeLessThan(at.get('3')!.w);
+    expect(result.svg).toBe(render(src, options).svg);
+  });
+
+  it('uses extra width within the same number of label lines', () => {
+    const text = 'one two three four five six seven eight';
+    const src = `block\n  1["a"]\n  2["b"]:2\n  3["${text}"]:5\n  4["c"]:2\n  5["d"]`;
+    const result = render(src, options);
+    const lines = nodeLabel(result.svg, '3');
+    expect(lines).toEqual(['one two three four five six seven', 'eight']);
+    expect(metricsMeasurer.width(lines[0], 16, 0)).toBeGreaterThan(200);
+    expect(metricsMeasurer.width(lines[0], 16, 0)).toBeLessThan(boxes(result.svg).get('3')!.w);
+  });
+
+  it('relayouts a spanning label inside a composite without changing its edge', () => {
+    const text = 'Something long long long long long long';
+    const src = `block\n  block:g\n    1["Something"]\n    2["${text}"]:2\n    3["${text}"]:5\n    4["${text}"]:2\n    5["Something"]\n  end\n  2 --> 3`;
+    const result = render(src, options);
+    expect(nodeLabel(result.svg, '3')).toEqual([text]);
+    expect(paths(result.svg)).toHaveLength(1);
+    expect(result.svg).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('keeps non-spanning, fixed, and explicitly broken labels unchanged', () => {
+    const text = 'Something long long long long long long';
+    const plain = render(`block\n  a["${text}"]`, options);
+    expect(nodeLabel(plain.svg, 'a')).toHaveLength(2);
+
+    const mixed = render(
+      `block\n  a(("${text}")) b((("${text}"))) c{"${text}"} d["${text}"]:2 e{{"${text}"}}:5 f[("${text}")]:5 g<["${text}"]>(right):5 h`,
+      options
+    );
+    expect(nodeLabel(mixed.svg, 'a')).toHaveLength(2);
+    expect(nodeLabel(mixed.svg, 'b')).toHaveLength(2);
+    expect(nodeLabel(mixed.svg, 'c')).toHaveLength(2);
+    expect(nodeLabel(mixed.svg, 'e')).toEqual([text]);
+    expect(nodeLabel(mixed.svg, 'f')).toEqual([text]);
+    expect(nodeLabel(mixed.svg, 'g')).toEqual([text]);
+
+    const broken = render(`block\n  a["${text}<br>tail"]:5 b c d e`, options);
+    expect(nodeLabel(broken.svg, 'a')).toEqual(['Something long long long long long', 'long', 'tail']);
+  });
+
+  it('uses the span left after the grid clips it to the row', () => {
+    const text = 'Something long long long long long long';
+    const clipped = render(`block\n  columns 3\n  a["x"] b["${text}"]:5 c`, options);
+    const fitted = render(`block\n  columns 3\n  a["x"] b["${text}"]:2 c`, options);
+    expect(nodeLabel(clipped.svg, 'b')).toEqual(nodeLabel(fitted.svg, 'b'));
+    expect(boxes(clipped.svg).get('b')).toEqual(boxes(fitted.svg).get('b'));
+  });
+
+  it('keeps spanning label improvements in the tight fallback', () => {
+    const text = 'Something long long long long long long';
+    const src = `block\n  1["Something"]\n  2["${text}"]:2\n  3["${text}"]:5\n  4["${text}"]:2\n  5["Something"]`;
+    const loose = render(src, options);
+    const tight = render(src, { ...options, maxWidth: 1000 });
+    expect(tight.width).toBeLessThan(loose.width);
+    expect(nodeLabel(tight.svg, '3')).toEqual([text]);
+    expect(tight.svg).not.toMatch(/NaN|Infinity/);
+  });
+
+  it('preserves markup, icon, and style spans while relabeling', () => {
+    const text = 'Something long long long long long long';
+    const result = render(
+      `block\n  a["<b>${text}</b> :fa:fa-star"]:5 b["${text}"]:2 c d e\n  style a font-size:20px`,
+      { ...options, icons: () => '<path d="M0,0"/>' }
+    );
+    expect(nodeLabel(result.svg, 'a').join(' ')).toContain(text);
+    expect(result.svg).toContain('class="pele-icon"');
+    expect(result.svg).toContain('font-weight="var(--_w)"');
+    expect(result.svg).toContain('style="font-size:20px;"');
   });
 
   it('stops a block that is wider than the rest of its row at the last column', () => {
